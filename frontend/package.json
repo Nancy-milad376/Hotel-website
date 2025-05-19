@@ -2,7 +2,7 @@
   "name": "savoy-hotel-frontend",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://Nancy-milad376.github.io/Hotel-website",
+  "homepage": "https://nancy-milad376.github.io/Hotel-website",
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
