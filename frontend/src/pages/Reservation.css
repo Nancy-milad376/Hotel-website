@@ -1,0 +1,216 @@
+.reservation {
+  padding: 5rem 7%;
+  margin-top: 6rem;
+}
+
+.reservation form {
+  padding: 2rem;
+  border: 0.2rem solid rgba(0, 0, 0, 0.1);
+  border-radius: 1.5rem;
+  background: #fff;
+  margin-bottom: 5rem;
+}
+
+.reservation form .container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3rem;
+}
+
+.reservation form .form-section {
+  flex: 1 1 40%;
+  min-width: 30rem;
+}
+
+.reservation form .form-section h2 {
+  font-size: 2.2rem;
+  color: var(--primary);
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.reservation form .box {
+  margin-bottom: 2rem;
+}
+
+.reservation form .box label {
+  display: block;
+  font-size: 1.6rem;
+  color: var(--black);
+  margin-bottom: 0.8rem;
+}
+
+.reservation form .box label span {
+  color: #dc3545;
+}
+
+.reservation form .box .input {
+  font-size: 1.6rem;
+  width: 100%;
+  padding: 1.2rem;
+  margin: 0.5rem 0;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+  color: var(--black);
+}
+
+.reservation form .box .input:focus {
+  border-color: var(--primary);
+}
+
+.reservation form .box .input.error {
+  border-color: #dc3545;
+}
+
+.reservation form .error-message {
+  color: #dc3545;
+  font-size: 1.4rem;
+  margin-top: 0.5rem;
+}
+
+/* Date picker custom styles */
+.reservation form .date-row {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 1rem;
+}
+
+.reservation form .date-row .box {
+  flex: 1;
+}
+
+.reservation form .react-datepicker-wrapper {
+  width: 100%;
+}
+
+.reservation form .react-datepicker__input-container input {
+  width: 100%;
+  padding: 1.2rem;
+  font-size: 1.6rem;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+  color: var(--black);
+}
+
+.reservation form .react-datepicker__input-container input:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.reservation form .options-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+}
+
+.reservation form .options-row .box {
+  flex: 1;
+  min-width: 15rem;
+}
+
+.reservation form .btn {
+  display: block;
+  width: 100%;
+  max-width: 40rem;
+  margin: 3rem auto 0;
+  padding: 1.5rem;
+  font-size: 1.8rem;
+  text-align: center;
+}
+
+.reservation form textarea.input {
+  resize: vertical;
+}
+
+/* Reservation info section */
+.reservation-info {
+  background: #f9f9f9;
+  padding: 3rem;
+  border-radius: 1rem;
+  margin-top: 5rem;
+}
+
+.reservation-info h2 {
+  font-size: 2.5rem;
+  color: var(--primary);
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.reservation-info .info-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3rem;
+}
+
+.reservation-info .info-item {
+  flex: 1 1 40%;
+  min-width: 25rem;
+  background: #fff;
+  padding: 2rem;
+  border-radius: 0.8rem;
+  box-shadow: var(--box-shadow);
+}
+
+.reservation-info .info-item h3 {
+  font-size: 1.8rem;
+  color: var(--primary);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.reservation-info .info-item h3 i {
+  font-size: 2rem;
+  color: var(--secondary);
+}
+
+.reservation-info .info-item p {
+  font-size: 1.5rem;
+  color: #666;
+  line-height: 1.6;
+}
+
+/* Alert styles */
+.alert {
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border-radius: 0.5rem;
+  font-size: 1.6rem;
+}
+
+.alert-danger {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+/* Media Queries */
+@media (max-width: 991px) {
+  .reservation {
+    padding: 5rem 5%;
+  }
+}
+
+@media (max-width: 768px) {
+  .reservation form .container {
+    flex-direction: column;
+    gap: 2rem;
+  }
+  
+  .reservation form .date-row {
+    flex-direction: column;
+    gap: 2rem;
+  }
+  
+  .reservation form .options-row {
+    flex-direction: column;
+    gap: 2rem;
+  }
+  
+  .reservation-info .info-content {
+    flex-direction: column;
+    gap: 2rem;
+  }
+}
