@@ -65,7 +65,7 @@ const Faq = () => {
       
       <div className="faq-container">
         <div className="faq-image">
-          <img src="/assets/images/FAQs.gif" alt="FAQs" />
+          <img src={`${process.env.PUBLIC_URL}/assets/images/FAQs.gif`} alt="FAQs" />
         </div>
         
         <div className="faq-content">

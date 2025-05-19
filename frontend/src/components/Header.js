@@ -30,7 +30,7 @@ const Header = () => {
   return (
     <header className={`header ${isScrolled ? 'scrolled' : ''}`}>
       <Link to="/" className="logo">
-        <img src="/assets/images/logo.jpeg" alt="Savoy Hotel Logo" />
+        <img src={`${process.env.PUBLIC_URL}/assets/images/logo.jpeg`} alt="Savoy Hotel Logo" />
       </Link>
 
       <div 

@@ -10,22 +10,22 @@ const Home = () => {
   const slides = [
     {
       id: 1,
-      image: "/assets/images/home-slide1.jpg",
+      image: `${process.env.PUBLIC_URL}/assets/images/home-slide1.jpg`,
       title: "It's where dreams come true",
     },
     {
       id: 2,
-      image: "/assets/images/home-slide2.jpg",
+      image: `${process.env.PUBLIC_URL}/assets/images/home-slide2.jpg`,
       title: "It's where dreams come true",
     },
     {
       id: 3,
-      image: "/assets/images/home-slide3.jpg",
+      image: `${process.env.PUBLIC_URL}/assets/images/home-slide3.jpg`,
       title: "It's where dreams come true",
     },
     {
       id: 4,
-      image: "/assets/images/home-slide4.jpg",
+      image: `${process.env.PUBLIC_URL}/assets/images/home-slide4.jpg`,
       title: "It's where dreams come true",
     },
   ];
@@ -90,7 +90,7 @@ const Home = () => {
       <section className="about" id="about-preview">
         <div className="row">
           <div className="image">
-            <img src="/assets/images/about.jpg" alt="Savoy Hotel" />
+            <img src={`${process.env.PUBLIC_URL}/assets/images/about.jpg`} alt="Savoy Hotel" />
           </div>
 
           <div className="content">
@@ -125,7 +125,7 @@ const Home = () => {
           <div className="room-card">
             <div className="image">
               <span className="price">$150/night</span>
-              <img src="/assets/images/room-1.jpg" alt="Luxury Room" />
+              <img src={`${process.env.PUBLIC_URL}/assets/images/room-1.jpg`} alt="Luxury Room" />
             </div>
             <div className="content">
               <h3>Luxury Suite</h3>
@@ -149,7 +149,7 @@ const Home = () => {
           <div className="room-card">
             <div className="image">
               <span className="price">$200/night</span>
-              <img src="/assets/images/room-2.jpg" alt="Ocean View Room" />
+              <img src={`${process.env.PUBLIC_URL}/assets/images/room-2.jpg`} alt="Ocean View Room" />
             </div>
             <div className="content">
               <h3>Ocean View Room</h3>

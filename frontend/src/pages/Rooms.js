@@ -40,7 +40,7 @@ const Rooms = () => {
               description:
                 "Experience unparalleled luxury with our spacious suites featuring panoramic views of the Red Sea.",
               price: 150,
-              image: "/assets/images/room-1.jpg",
+              image: `${process.env.PUBLIC_URL}/assets/images/room-1.jpg`,
               features: [
                 "King-size bed",
                 "Ocean view",
@@ -56,7 +56,7 @@ const Rooms = () => {
               description:
                 "Wake up to stunning ocean views in our elegantly appointed oceanfront rooms with private balconies.",
               price: 200,
-              image: "/assets/images/room-2.jpg",
+              image: `${process.env.PUBLIC_URL}/assets/images/room-2.jpg`,
               features: [
                 "Queen-size bed",
                 "Ocean view",
@@ -71,7 +71,7 @@ const Rooms = () => {
               description:
                 "Perfect for families, our spacious family suites offer separate living areas and stunning views.",
               price: 250,
-              image: "/assets/images/room-3.jpg",
+              image: `${process.env.PUBLIC_URL}/assets/images/room-3.jpg`,
               features: [
                 "2 King-size beds",
                 "Living room",
@@ -87,7 +87,7 @@ const Rooms = () => {
               description:
                 "Cozy and comfortable single rooms, perfect for solo travelers seeking luxury and comfort.",
               price: 120,
-              image: "/assets/images/room-4.jpg",
+              image: `${process.env.PUBLIC_URL}/assets/images/room-4.jpg`,
               features: ["Single bed", "City view", "Work desk", "Mini bar"],
               rating: 4.3,
             },
@@ -97,7 +97,7 @@ const Rooms = () => {
               description:
                 "The ultimate in luxury, our presidential suite offers unparalleled amenities and breathtaking panoramic views.",
               price: 500,
-              image: "/assets/images/room-5.jpg",
+              image: `${process.env.PUBLIC_URL}/assets/images/room-5.jpg`,
               features: [
                 "Super King-size bed",
                 "Living room",
@@ -113,7 +113,7 @@ const Rooms = () => {
               description:
                 "Designed for romance, our honeymoon suite features a private balcony and stunning sunset views.",
               price: 300,
-              image: "/assets/images/room-6.jpg",
+              image: `${process.env.PUBLIC_URL}/assets/images/room-6.jpg`,
               features: [
                 "King-size bed",
                 "Ocean view",

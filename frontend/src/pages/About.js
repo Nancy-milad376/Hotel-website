@@ -16,7 +16,7 @@ const About = () => {
         <div className="container">
           <div className="about-content">
             <div className="about-image">
-              <img src="/assets/images/about.jpg" alt="Savoy Hotel" />
+              <img src={`${process.env.PUBLIC_URL}/assets/images/about.jpg`} alt="Savoy Hotel" />
             </div>
 
             <div className="about-text">
@@ -147,7 +147,10 @@ const About = () => {
           <div className="team-grid">
             <div className="team-member">
               <div className="member-image">
-                <img src="/assets/images/review-1.png" alt="Team Member" />
+                <img
+                  src={`${process.env.PUBLIC_URL}/assets/images/review-1.png`}
+                  alt="Team Member"
+                />
               </div>
               <h3>Ahmed Samir</h3>
               <p className="position">Marketing Director</p>
@@ -159,7 +162,10 @@ const About = () => {
 
             <div className="team-member">
               <div className="member-image">
-                <img src="/assets/images/review-2.png" alt="Team Member" />
+                <img
+                  src={`${process.env.PUBLIC_URL}/assets/images/review-2.png`}
+                  alt="Team Member"
+                />
               </div>
               <h3>Sarah Amir</h3>
               <p className="position">Reservations Manager</p>
@@ -171,7 +177,7 @@ const About = () => {
 
             <div className="team-member">
               <div className="member-image">
-                <img src="/assets/images/review-3.png" alt="Team Member" />
+                <img src={`${process.env.PUBLIC_URL}/assets/images/review-3.png`} alt="Team Member" />
               </div>
               <h3>Mohamed Hassan</h3>
               <p className="position">Executive Chef</p>

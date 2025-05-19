@@ -29,7 +29,7 @@ const Reviews = () => {
               date: "2025-03-15",
               comment:
                 "Absolutely amazing experience! The staff was incredibly attentive and the facilities were top-notch. The beachfront view from our room was breathtaking.",
-              image: "/assets/images/review-2.png",
+              image: `${process.env.PUBLIC_URL}/assets/images/review-2.png`,
             },
             {
               id: 2,
@@ -38,7 +38,7 @@ const Reviews = () => {
               date: "2025-02-28",
               comment:
                 "Great hotel with excellent amenities. The spa services were exceptional and the restaurant offered delicious food. Only drawback was the slightly delayed check-in.",
-              image: "/assets/images/review-5.png",
+              image: `${process.env.PUBLIC_URL}/assets/images/review-5.png`,
             },
             {
               id: 3,
@@ -47,7 +47,7 @@ const Reviews = () => {
               date: "2025-04-05",
               comment:
                 "Perfect getaway destination! The rooms were spacious and immaculately clean. The private beach access was a highlight of our stay. Will definitely return!",
-              image: "/assets/images/review-4.png",
+              image: `${process.env.PUBLIC_URL}/assets/images/review-4.png`,
             },
             {
               id: 4,
@@ -56,7 +56,7 @@ const Reviews = () => {
               date: "2025-03-22",
               comment:
                 "Exceptional service from the moment we arrived. The staff went above and beyond to make our anniversary special. The ocean view suite was worth every penny!",
-              image: "/assets/images/review-3.png",
+              image: `${process.env.PUBLIC_URL}/assets/images/review-3.png`,
             },
             {
               id: 5,
@@ -65,7 +65,7 @@ const Reviews = () => {
               date: "2025-04-10",
               comment:
                 "Lovely property with beautiful grounds. The pools were amazing and the beach pristine. Restaurant options were good but could use more variety for vegetarians.",
-              image: "/assets/images/review-6.png",
+              image: `${process.env.PUBLIC_URL}/assets/images/review-6.png`,
             },
           ]);
           setLoading(false);
@@ -152,7 +152,7 @@ const Reviews = () => {
         <div
           className="review-slider-container"
           style={{
-            backgroundImage: `url(/assets/images/review-background.jpg)`,
+            backgroundImage: `url(${process.env.PUBLIC_URL}/assets/images/review-background.jpg)`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             padding: "2rem",

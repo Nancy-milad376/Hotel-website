@@ -153,6 +153,7 @@
   padding-bottom: 1.5rem;
   margin-bottom: 1.5rem;
   border-bottom: 1px solid #eee;
+  justify-content: space-between;
 }
 
 .item-image {
