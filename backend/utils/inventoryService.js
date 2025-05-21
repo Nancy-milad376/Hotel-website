@@ -1,6 +1,6 @@
 // utils/inventoryService.js
 const db = require("../models");
-const { Op, Sequelize } = require("sequelize");
+const { Sequelize } = require("sequelize");
 
 // Initial room types & counts (used only for first‐time initialization)
 const roomTypes = [
@@ -16,14 +16,14 @@ const roomTypes = [
  * Initialize inventory table once.
  */
 async function initializeInventory() {
-  const existing = await db.RoomInventory.count();
+  const existing = await db.roominventory.count();
   if (existing > 0) {
     console.log("Inventory already initialized");
     return;
   }
 
   for (const { type, name, count } of roomTypes) {
-    await db.RoomInventory.create({
+    await db.roominventory.create({
       roomType: type,
       totalRooms: count,
       availableRooms: count,
@@ -56,7 +56,7 @@ async function checkAvailability(
   options = {}
 ) {
   // ensure we have inventory
-  const inventory = await db.RoomInventory.findOne({
+  const inventory = await db.roominventory.findOne({
     where: { roomType },
     ...options,
   });
@@ -67,7 +67,7 @@ async function checkAvailability(
   const dates = getDatesInRange(new Date(checkIn), new Date(checkOut));
 
   for (const date of dates) {
-    const [avail] = await db.RoomAvailability.findOrCreate({
+    const [avail] = await db.roomavailability.findOrCreate({
       where: { roomType, date },
       defaults: {
         bookedRooms: 0,
@@ -111,7 +111,7 @@ async function reserveRooms(
 
   const dates = getDatesInRange(new Date(checkIn), new Date(checkOut));
   for (const date of dates) {
-    await db.RoomAvailability.update(
+    await db.roomavailability.update(
       {
         bookedRooms: Sequelize.literal(`bookedRooms + ${roomsNeeded}`),
         availableRooms: Sequelize.literal(`availableRooms - ${roomsNeeded}`),
@@ -137,15 +137,14 @@ async function releaseRooms(
   options = {}
 ) {
   const dates = getDatesInRange(new Date(checkIn), new Date(checkOut));
-  const inventory = await db.RoomInventory.findOne({
+  const inventory = await db.roominventory.findOne({
     where: { roomType },
     ...options,
   });
   const maxRooms = inventory ? inventory.totalRooms : null;
 
   for (const date of dates) {
-    // ensure the row exists
-    const [avail] = await db.RoomAvailability.findOrCreate({
+    const [avail] = await db.roomavailability.findOrCreate({
       where: { roomType, date },
       defaults: {
         bookedRooms: 0,
@@ -154,7 +153,7 @@ async function releaseRooms(
       ...options,
     });
 
-    await db.RoomAvailability.update(
+    await db.roomavailability.update(
       {
         bookedRooms: Sequelize.literal(
           `GREATEST(bookedRooms - ${roomsToRelease}, 0)`
@@ -180,14 +179,14 @@ async function releaseRooms(
  * Fetch current inventory snapshot
  */
 async function getInventoryStatus() {
-  return db.RoomInventory.findAll();
+  return db.roominventory.findAll();
 }
 
 /**
  * Check availability for every room type in a date range
  */
 async function getAvailabilityForDateRange(checkIn, checkOut) {
-  const inventories = await db.RoomInventory.findAll();
+  const inventories = await db.roominventory.findAll();
   const result = {};
 
   for (const inv of inventories) {
@@ -196,11 +195,10 @@ async function getAvailabilityForDateRange(checkIn, checkOut) {
     let availableRooms = 0;
 
     if (check.available) {
-      // find min available across days
       const dates = getDatesInRange(new Date(checkIn), new Date(checkOut));
       availableRooms = totalRooms;
       for (const date of dates) {
-        const avail = await db.RoomAvailability.findOne({
+        const avail = await db.roomavailability.findOne({
           where: { roomType, date },
         });
         if (avail && avail.availableRooms < availableRooms) {

@@ -1,219 +1,164 @@
-const db = require('../models');
-const Review = db.Review;
-const Room = db.Room;
+// controllers/reviewController.js
+const db = require("../models");
+const Review = db.review;
+const Room = db.room;
+const User = db.user; // in case you ever want to show who left it
 
 // @desc    Create new review
 // @route   POST /api/reviews
-// @access  Private
+// @access  Public
 exports.createReview = async (req, res) => {
   try {
     const { roomId, rating, comment } = req.body;
-
-    // Validate required fields
     if (!roomId || !rating || !comment) {
-      return res.status(400).json({ message: 'Please provide roomId, rating and comment' });
+      return res
+        .status(400)
+        .json({ message: "Please provide roomId, rating and comment" });
     }
 
-    // Check if room exists
     const room = await Room.findByPk(roomId);
     if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
+      return res.status(404).json({ message: "Room not found" });
     }
 
-    // Check if user already reviewed this room
-    const alreadyReviewed = await Review.findOne({
-      where: {
-        RoomId: roomId,
-        UserId: req.user.id
-      }
-    });
-
-    if (alreadyReviewed) {
-      return res.status(400).json({ message: 'You have already reviewed this room' });
-    }
-
-    // Create review
     const review = await Review.create({
       rating: Number(rating),
       comment,
-      UserId: req.user.id,
-      RoomId: roomId
+      userId: null,
+      roomId,
     });
 
-    // Get updated room
+    // Re-fetch room to get updated rating & count (your afterCreate hook will have run)
     const updatedRoom = await Room.findByPk(roomId);
 
     res.status(201).json({
       review,
       roomRating: updatedRoom.rating,
       numReviews: updatedRoom.numReviews,
-      message: 'Review added successfully'
+      message: "Review added successfully",
     });
   } catch (error) {
-    console.error('Error creating review:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error creating review:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Get all reviews
+// @desc    Get all reviews (optionally filter by roomId)
 // @route   GET /api/reviews
 // @access  Public
 exports.getReviews = async (req, res) => {
   try {
     const { roomId } = req.query;
-
-    const filter = {};
-    if (roomId) {
-      filter.RoomId = roomId;
-    }
+    const where = {};
+    if (roomId) where.roomId = roomId;
 
     const reviews = await Review.findAll({
-      where: filter,
+      where,
       include: [
-        {
-          model: db.User,
-          as: 'User',
-          attributes: ['id', 'name']
-        },
-        {
-          model: db.Room,
-          as: 'Room',
-          attributes: ['id', 'name']
-        }
+        { model: User, attributes: ["id", "name"] },
+        { model: Room, attributes: ["id", "name"] },
       ],
-      order: [['createdAt', 'DESC']]
+      order: [["createdAt", "DESC"]],
     });
 
     res.json(reviews);
   } catch (error) {
-    console.error('Error fetching reviews:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error fetching reviews:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Get user reviews
+// @desc    Get all reviews by “current user” (public—returns those with null userId)
 // @route   GET /api/reviews/myreviews
-// @access  Private
+// @access  Public
 exports.getMyReviews = async (req, res) => {
   try {
     const reviews = await Review.findAll({
-      where: {
-        UserId: req.user.id
-      },
-      include: [
-        {
-          model: db.Room,
-          as: 'Room'
-        }
-      ],
-      order: [['createdAt', 'DESC']]
+      where: { userId: null },
+      include: [{ model: Room, attributes: ["id", "name"] }],
+      order: [["createdAt", "DESC"]],
     });
-
     res.json(reviews);
   } catch (error) {
-    console.error('Error fetching user reviews:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error fetching user reviews:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Get review by ID
+// @desc    Get single review by ID
 // @route   GET /api/reviews/:id
 // @access  Public
 exports.getReviewById = async (req, res) => {
   try {
     const review = await Review.findByPk(req.params.id, {
       include: [
-        {
-          model: db.User,
-          as: 'User',
-          attributes: ['id', 'name']
-        },
-        {
-          model: db.Room,
-          as: 'Room'
-        }
-      ]
+        { model: User, attributes: ["id", "name"] },
+        { model: Room, attributes: ["id", "name"] },
+      ],
     });
-
     if (!review) {
-      return res.status(404).json({ message: 'Review not found' });
+      return res.status(404).json({ message: "Review not found" });
     }
-
     res.json(review);
   } catch (error) {
-    console.error('Error fetching review:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error fetching review:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Update review
+// @desc    Update a review
 // @route   PUT /api/reviews/:id
-// @access  Private
+// @access  Public
 exports.updateReview = async (req, res) => {
   try {
     const { rating, comment } = req.body;
-
     const review = await Review.findByPk(req.params.id);
-
     if (!review) {
-      return res.status(404).json({ message: 'Review not found' });
+      return res.status(404).json({ message: "Review not found" });
     }
 
-    // Check if review belongs to user
-    if (review.UserId !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Not authorized to update this review' });
-    }
+    review.rating = rating !== undefined ? Number(rating) : review.rating;
+    review.comment = comment !== undefined ? comment : review.comment;
+    await review.save();
 
-    review.rating = Number(rating) || review.rating;
-    review.comment = comment || review.comment;
-    
-    const updatedReview = await review.save();
-
-    // Get updated room
-    const updatedRoom = await Room.findByPk(review.RoomId);
+    // Re-fetch room
+    const updatedRoom = await Room.findByPk(review.roomId);
 
     res.json({
-      review: updatedReview,
+      review,
       roomRating: updatedRoom.rating,
       numReviews: updatedRoom.numReviews,
-      message: 'Review updated successfully'
+      message: "Review updated successfully",
     });
   } catch (error) {
-    console.error('Error updating review:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error updating review:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Delete review
+// @desc    Delete a review
 // @route   DELETE /api/reviews/:id
-// @access  Private
+// @access  Public
 exports.deleteReview = async (req, res) => {
   try {
     const review = await Review.findByPk(req.params.id);
-
     if (!review) {
-      return res.status(404).json({ message: 'Review not found' });
+      return res.status(404).json({ message: "Review not found" });
     }
 
-    // Check if review belongs to user or user is admin
-    if (review.UserId !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Not authorized to delete this review' });
-    }
-
-    const roomId = review.RoomId;
-
+    const roomId = review.roomId;
     await review.destroy();
 
-    // Get updated room
+    // Re-fetch room
     const updatedRoom = await Room.findByPk(roomId);
 
     res.json({
-      message: 'Review removed',
+      message: "Review removed",
       roomRating: updatedRoom.rating,
-      numReviews: updatedRoom.numReviews
+      numReviews: updatedRoom.numReviews,
     });
   } catch (error) {
-    console.error('Error deleting review:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error deleting review:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };

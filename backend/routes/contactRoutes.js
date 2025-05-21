@@ -1,15 +1,15 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const contactController = require('../controllers/contactController');
-const { protect, admin } = require('../middleware/authMiddleware');
+const contactController = require("../controllers/contactController");
+//const { protect, admin } = require("../middleware/authMiddleware");
 
 // Public routes
-router.post('/', contactController.createContactMessage);
+router.post("/", contactController.createContactMessage);
 
 // Protected routes (admin only)
-router.get('/', protect, admin, contactController.getContactMessages);
-router.get('/:id', protect, admin, contactController.getContactMessageById);
-router.put('/:id', protect, admin, contactController.updateContactStatus);
-router.delete('/:id', protect, admin, contactController.deleteContactMessage);
+router.get("/", contactController.getContactMessages);
+router.get("/:id", contactController.getContactMessageById);
+router.put("/:id", contactController.updateContactStatus);
+router.delete("/:id", contactController.deleteContactMessage);
 
 module.exports = router;

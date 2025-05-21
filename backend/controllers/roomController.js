@@ -1,6 +1,6 @@
-const db = require('../models');
-const Room = db.Room;
-const { Op } = require('sequelize');
+// controllers/roomController.js
+const db = require("../models");
+const { Op } = require("sequelize");
 
 // @desc    Get all rooms
 // @route   GET /api/rooms
@@ -8,41 +8,31 @@ const { Op } = require('sequelize');
 exports.getRooms = async (req, res) => {
   try {
     const { type, minPrice, maxPrice, availability } = req.query;
-
-    // Build filter object
     const filter = {};
-    
-    if (type) {
-      filter.type = type;
-    }
-    
-    if (availability) {
-      filter.availability = availability === 'true';
-    }
-    
+
+    if (type) filter.type = type;
+    if (availability !== undefined)
+      filter.availability = availability === "true";
+
     if (minPrice && maxPrice) {
       filter.price = {
-        [Op.between]: [parseFloat(minPrice), parseFloat(maxPrice)]
+        [Op.between]: [parseFloat(minPrice), parseFloat(maxPrice)],
       };
     } else if (minPrice) {
-      filter.price = {
-        [Op.gte]: parseFloat(minPrice)
-      };
+      filter.price = { [Op.gte]: parseFloat(minPrice) };
     } else if (maxPrice) {
-      filter.price = {
-        [Op.lte]: parseFloat(maxPrice)
-      };
+      filter.price = { [Op.lte]: parseFloat(maxPrice) };
     }
 
-    const rooms = await Room.findAll({
+    const rooms = await db.room.findAll({
       where: filter,
-      order: [['createdAt', 'DESC']]
+      order: [["createdAt", "DESC"]],
     });
 
     res.json(rooms);
   } catch (error) {
-    console.error('Error fetching rooms:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error fetching rooms:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -50,33 +40,33 @@ exports.getRooms = async (req, res) => {
 // @route   GET /api/rooms/:id
 // @access  Public
 exports.getRoomById = async (req, res) => {
+  console.log("getRoomById invoked with id =", req.params.id);
   try {
-    const room = await Room.findByPk(req.params.id, {
-      include: [{
-        model: db.Review,
-        as: 'Reviews',
-        include: [{
-          model: db.User,
-          as: 'User',
-          attributes: ['id', 'name']
-        }]
-      }]
+    const room = await db.room.findByPk(req.params.id, {
+      include: [
+        {
+          model: db.review,
+          include: [
+            {
+              model: db.user,
+              attributes: ["id", "name"],
+            },
+          ],
+        },
+      ],
     });
 
-    if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
-    }
-
+    if (!room) return res.status(404).json({ message: "Room not found" });
     res.json(room);
   } catch (error) {
-    console.error('Error fetching room:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error fetching room:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // @desc    Create a new room
 // @route   POST /api/rooms
-// @access  Private/Admin
+// @access  Public (was admin)
 exports.createRoom = async (req, res) => {
   try {
     const {
@@ -91,10 +81,10 @@ exports.createRoom = async (req, res) => {
       features,
       size,
       beds,
-      availability
+      availability,
     } = req.body;
 
-    const newRoom = await Room.create({
+    const newRoom = await db.room.create({
       name,
       description,
       price,
@@ -106,163 +96,109 @@ exports.createRoom = async (req, res) => {
       features,
       size,
       beds,
-      availability: availability !== undefined ? availability : true
+      availability: availability !== undefined ? availability : true,
     });
 
     res.status(201).json(newRoom);
   } catch (error) {
-    console.error('Error creating room:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error creating room:", error);
+    if (error.name === "SequelizeValidationError") {
+      return res
+        .status(400)
+        .json({ message: "Validation error", errors: error.errors });
+    }
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // @desc    Update room details
 // @route   PUT /api/rooms/:id
-// @access  Private/Admin
+// @access  Public (was admin)
 exports.updateRoom = async (req, res) => {
+  console.log(
+    "updateRoom invoked with id =",
+    req.params.id,
+    "body =",
+    req.body
+  );
   try {
-    const room = await Room.findByPk(req.params.id);
+    const room = await db.room.findByPk(req.params.id);
+    if (!room) return res.status(404).json({ message: "Room not found" });
 
-    if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
-    }
-
-    const {
-      name,
-      description,
-      price,
-      mainImage,
-      images,
-      type,
-      adultCapacity,
-      childrenCapacity,
-      features,
-      size,
-      beds,
-      availability
-    } = req.body;
-
-    await room.update({
-      name: name || room.name,
-      description: description || room.description,
-      price: price || room.price,
-      mainImage: mainImage || room.mainImage,
-      images: images || room.images,
-      type: type || room.type,
-      adultCapacity: adultCapacity || room.adultCapacity,
-      childrenCapacity: childrenCapacity !== undefined ? childrenCapacity : room.childrenCapacity,
-      features: features || room.features,
-      size: size || room.size,
-      beds: beds || room.beds,
-      availability: availability !== undefined ? availability : room.availability
-    });
-
-    res.json(room);
+    const updated = await room.update(req.body);
+    res.json(updated);
   } catch (error) {
-    console.error('Error updating room:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error updating room:", error);
+    if (error.name === "SequelizeValidationError") {
+      return res
+        .status(400)
+        .json({ message: "Validation error", errors: error.errors });
+    }
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // @desc    Delete a room
 // @route   DELETE /api/rooms/:id
-// @access  Private/Admin
+// @access  Public (was admin)
 exports.deleteRoom = async (req, res) => {
+  console.log("deleteRoom invoked with id =", req.params.id);
   try {
-    const room = await Room.findByPk(req.params.id);
-
-    if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
-    }
+    const room = await db.room.findByPk(req.params.id);
+    if (!room) return res.status(404).json({ message: "Room not found" });
 
     await room.destroy();
-
-    res.json({ message: 'Room removed' });
+    res.status(204).send();
   } catch (error) {
-    console.error('Error deleting room:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error deleting room:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Check room availability for specific dates
+// @desc    Check room availability
 // @route   POST /api/rooms/check-availability
 // @access  Public
 exports.checkRoomAvailability = async (req, res) => {
+  console.log("checkRoomAvailability invoked", req.body);
   try {
     const { roomId, checkInDate, checkOutDate } = req.body;
-
-    // Validate required fields
     if (!roomId || !checkInDate || !checkOutDate) {
-      return res.status(400).json({ message: 'Please provide roomId, checkInDate and checkOutDate' });
+      return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // Check if room exists
-    const room = await Room.findByPk(roomId);
-    if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
-    }
+    // Ensure the room exists
+    const room = await db.room.findByPk(roomId);
+    if (!room) return res.status(404).json({ message: "Room not found" });
 
-    // Check if room is available
     if (!room.availability) {
-      return res.json({ available: false, message: 'Room is not available for booking' });
+      return res.json({ available: false, message: "Room not available" });
     }
 
-    // Check if room is booked for requested dates
-    const existingBooking = await db.Booking.findOne({
+    // Check for overlapping bookings
+    const existingBooking = await db.booking.findOne({
       where: {
-        RoomId: roomId,
-        [Op.and]: [
+        roomId,
+        status: { [Op.not]: "cancelled" },
+        [Op.or]: [
+          { checkInDate: { [Op.between]: [checkInDate, checkOutDate] } },
+          { checkOutDate: { [Op.between]: [checkInDate, checkOutDate] } },
           {
-            [Op.or]: [
-              {
-                checkInDate: {
-                  [Op.between]: [checkInDate, checkOutDate]
-                }
-              },
-              {
-                checkOutDate: {
-                  [Op.between]: [checkInDate, checkOutDate]
-                }
-              },
-              {
-                [Op.and]: [
-                  {
-                    checkInDate: {
-                      [Op.lte]: checkInDate
-                    }
-                  },
-                  {
-                    checkOutDate: {
-                      [Op.gte]: checkOutDate
-                    }
-                  }
-                ]
-              }
-            ]
+            [Op.and]: [
+              { checkInDate: { [Op.lte]: checkInDate } },
+              { checkOutDate: { [Op.gte]: checkOutDate } },
+            ],
           },
-          {
-            status: {
-              [Op.notIn]: ['cancelled']
-            }
-          }
-        ]
-      }
+        ],
+      },
     });
 
     if (existingBooking) {
-      return res.json({ 
-        available: false, 
-        message: 'Room is already booked for these dates'
-      });
+      return res.json({ available: false, message: "Already booked" });
     }
 
-    res.json({ 
-      available: true, 
-      message: 'Room is available for booking',
-      room
-    });
+    res.json({ available: true, message: "Available", room });
   } catch (error) {
-    console.error('Error checking room availability:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error checking availability:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };

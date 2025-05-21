@@ -1,45 +1,50 @@
-const { Sequelize } = require('sequelize');
-const dotenv = require('dotenv');
-
+// models/index.js
+const { Sequelize } = require("sequelize");
+const dotenv = require("dotenv");
 dotenv.config();
 
 const sequelize = new Sequelize(
-  process.env.DB_NAME || 'savoy_hotel',
-  process.env.DB_USER || 'root',
-  process.env.DB_PASSWORD || '',
+  process.env.DB_NAME,
+  process.env.DB_USER,
+  process.env.DB_PASSWORD,
   {
-    host: process.env.DB_HOST || 'localhost',
-    dialect: 'mysql',
-    port: process.env.DB_PORT || 3306,
-    logging: false
+    host: process.env.DB_HOST,
+    dialect: "mysql",
+    port: process.env.DB_PORT,
+    logging: false,
   }
 );
 
 const db = {};
-
-db.Sequelize = Sequelize;
 db.sequelize = sequelize;
+db.Sequelize = Sequelize;
 
-// Import models
-db.User = require('./userModel')(sequelize, Sequelize.DataTypes);
-db.Room = require('./roomModel')(sequelize, Sequelize.DataTypes);
-db.Booking = require('./bookingModel')(sequelize, Sequelize.DataTypes);
-db.Review = require('./reviewModel')(sequelize, Sequelize.DataTypes);
-db.Contact = require('./contactModel')(sequelize, Sequelize.DataTypes);
-db.RoomInventory = require('./roomInventoryModel')(sequelize, Sequelize.DataTypes);
-db.RoomAvailability = require('./roomAvailabilityModel')(sequelize, Sequelize.DataTypes);
+// Load models
+db.user = require("./userModel")(sequelize, Sequelize.DataTypes);
+db.room = require("./roomModel")(sequelize, Sequelize.DataTypes);
+db.booking = require("./bookingModel")(sequelize, Sequelize.DataTypes);
+db.review = require("./reviewModel")(sequelize, Sequelize.DataTypes);
+db.contact = require("./contactModel")(sequelize, Sequelize.DataTypes);
+db.roominventory = require("./roomInventoryModel")(
+  sequelize,
+  Sequelize.DataTypes
+);
+db.roomavailability = require("./roomAvailabilityModel")(
+  sequelize,
+  Sequelize.DataTypes
+);
 
 // Define relationships
-db.User.hasMany(db.Booking);
-db.Booking.belongsTo(db.User);
+db.user.hasMany(db.booking);
+db.booking.belongsTo(db.user);
 
-db.Room.hasMany(db.Booking);
-db.Booking.belongsTo(db.Room);
+db.room.hasMany(db.booking);
+db.booking.belongsTo(db.room);
 
-db.User.hasMany(db.Review);
-db.Review.belongsTo(db.User);
+db.user.hasMany(db.review);
+db.review.belongsTo(db.user);
 
-db.Room.hasMany(db.Review);
-db.Review.belongsTo(db.Room);
+db.room.hasMany(db.review);
+db.review.belongsTo(db.room);
 
 module.exports = db;

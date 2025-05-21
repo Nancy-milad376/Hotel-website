@@ -3,34 +3,29 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
-const { Sequelize } = require("sequelize");
 
-// Initialize Express
+const db = require("./models"); // the file above
+const { createAdminUser } = require("./utils/createAdminUser");
+const dbInit = require("./utils/databaseInit");
+const scheduledTasks = require("./utils/scheduledTasks");
+
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: "https://nancy-milad376.github.io/Hotel-website/", // your frontend origin
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Initialize Sequelize
-const sequelize = new Sequelize(
-  process.env.DB_NAME || "savoy_hotel",
-  process.env.DB_USER || "root",
-  process.env.DB_PASSWORD || "",
-  {
-    host: process.env.DB_HOST || "localhost",
-    dialect: "mysql",
-    port: process.env.DB_PORT || 3306,
-    logging: false,
-  }
-);
+// Request logger
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
 
-// Import models and utilities
-const db = require("./models");
-const dbInit = require("./utils/databaseInit");
-// NOTE: import the module, not a missing named export
-const scheduledTasks = require("./utils/scheduledTasks");
-
-// Routes
+// Mount your routes
 app.use("/api/rooms", require("./routes/roomRoutes"));
 app.use("/api/bookings", require("./routes/bookingRoutes"));
 app.use("/api/reviews", require("./routes/reviewRoutes"));
@@ -38,13 +33,10 @@ app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/contact", require("./routes/contactRoutes"));
 app.use("/api/inventory", require("./routes/inventoryRoutes"));
 
-// Serve React build in production
 if (process.env.NODE_ENV === "production") {
   const buildPath = path.join(__dirname, "../frontend/build");
   app.use(express.static(buildPath));
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(buildPath, "index.html"));
-  });
+  app.get("*", (_, res) => res.sendFile(path.join(buildPath, "index.html")));
 }
 
 // Error handler
@@ -58,29 +50,43 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-// Boot up
 (async () => {
   try {
-    await sequelize.authenticate();
+    // 1) Authenticate
+    await db.sequelize.authenticate();
     console.log("✔️ Database connected");
 
-    // Initialize your DB schema & seed data
-    const initSuccess = await dbInit.initializeDatabase(sequelize);
-    if (!initSuccess) {
-      console.warn("⚠️ Database initialization encountered issues");
-    }
+    // 2) Temporarily disable FK checks
+    await db.sequelize.query("SET FOREIGN_KEY_CHECKS = 0");
+    console.log("🔒 Foreign key checks disabled");
 
-    // Start your daily cron‐style inventory release
+    // 3) Drop all tables in the correct order
+    await db.sequelize.drop();
+    console.log("🗑️ All tables dropped");
+
+    // 4) Re-enable FK checks
+    await db.sequelize.query("SET FOREIGN_KEY_CHECKS = 1");
+    console.log("🔓 Foreign key checks re-enabled");
+
+    // 5) Sync models (recreate tables)
+    await db.sequelize.sync({ force: true });
+    console.log("✅ Database re-synced (all tables recreated)");
+
+    // 6) Seed your admin user
+    await createAdminUser();
+
+    // 7) Initialize any other data & start scheduled tasks
+    await dbInit.initializeDatabase(db.sequelize);
     scheduledTasks.start();
 
-    // Finally, start listening
+    // 8) Start server
     app.listen(PORT, () =>
       console.log(
         `🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`
       )
     );
   } catch (error) {
-    console.error("❌ Server startup failed:", error);
+    console.error("❌ Startup failed:", error);
     process.exit(1);
   }
 })();

@@ -1,12 +1,12 @@
 // controllers/bookingController.js
-const { sequelize, Booking, Room, User } = require("../models");
+const db = require("../models");
 const { Op } = require("sequelize");
 const inventoryService = require("../utils/inventoryService");
 
 // @desc    Create new booking
 // @route   POST /api/bookings
-// @access  Private
-exports.createBooking = async (req, res, next) => {
+// @access  Public
+exports.createBooking = async (req, res) => {
   const {
     roomId,
     checkInDate,
@@ -32,17 +32,16 @@ exports.createBooking = async (req, res, next) => {
       .json({ message: "Please provide all required fields" });
   }
 
-  // Transaction: ensure booking + inventory change atomic
-  const t = await sequelize.transaction();
+  const t = await db.sequelize.transaction();
   try {
     // Verify room exists
-    const room = await Room.findByPk(roomId, { transaction: t });
+    const room = await db.room.findByPk(roomId, { transaction: t });
     if (!room) {
       await t.rollback();
       return res.status(404).json({ message: "Room not found" });
     }
 
-    // Check inventory availability and reserve
+    // Check & reserve inventory
     const availCheck = await inventoryService.checkAvailability(
       room.type,
       checkInDate,
@@ -54,7 +53,6 @@ exports.createBooking = async (req, res, next) => {
       await t.rollback();
       return res.status(400).json({ message: availCheck.message });
     }
-
     await inventoryService.reserveRooms(
       room.type,
       checkInDate,
@@ -63,8 +61,8 @@ exports.createBooking = async (req, res, next) => {
       { transaction: t }
     );
 
-    // Create booking record
-    const booking = await Booking.create(
+    // Create booking
+    const booking = await db.booking.create(
       {
         checkInDate,
         checkOutDate,
@@ -76,182 +74,112 @@ exports.createBooking = async (req, res, next) => {
         paymentMethod,
         status: "pending",
         paymentStatus: "pending",
-        UserId: req.user?.id || null,
-        RoomId: roomId,
+        userId: null,
+        roomId,
       },
       { transaction: t }
     );
 
     await t.commit();
-    return res
-      .status(201)
-      .json({ booking, message: "Booking created successfully" });
+    res.status(201).json({ booking, message: "Booking created successfully" });
   } catch (error) {
     await t.rollback();
     console.error("Error in createBooking:", error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Get all bookings (admin)
+// @desc    Get all bookings
 // @route   GET /api/bookings
-// @access  Private/Admin
+// @access  Public
 exports.getBookings = async (req, res) => {
   try {
-    const bookings = await Booking.findAll({
+    const bookings = await db.booking.findAll({
       include: [
-        { model: Room, as: "Room" },
+        { model: db.room },
         {
-          model: User,
-          as: "User",
+          model: db.user,
           attributes: ["id", "name", "email", "phone"],
         },
       ],
       order: [["createdAt", "DESC"]],
     });
-    return res.json(bookings);
+    res.json(bookings);
   } catch (error) {
     console.error("Error fetching bookings:", error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // @desc    Get current user bookings
 // @route   GET /api/bookings/mybookings
-// @access  Private
+// @access  Public
 exports.getMyBookings = async (req, res) => {
   try {
-    const bookings = await Booking.findAll({
-      where: { UserId: req.user.id },
-      include: [{ model: Room, as: "Room" }],
+    const bookings = await db.booking.findAll({
+      where: { userId: req.body.userId || null },
+      include: [{ model: db.room }],
       order: [["createdAt", "DESC"]],
     });
-    return res.json(bookings);
+    res.json(bookings);
   } catch (error) {
     console.error("Error fetching user bookings:", error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // @desc    Get single booking by ID
 // @route   GET /api/bookings/:id
-// @access  Private
+// @access  Public
 exports.getBookingById = async (req, res) => {
   try {
-    const booking = await Booking.findByPk(req.params.id, {
-      include: [
-        { model: Room, as: "Room" },
-        {
-          model: User,
-          as: "User",
-          attributes: ["id", "name", "email", "phone"],
-        },
-      ],
+    const booking = await db.booking.findByPk(req.params.id, {
+      include: [db.room, db.user],
     });
     if (!booking) return res.status(404).json({ message: "Booking not found" });
-    if (booking.UserId !== req.user.id && req.user.role !== "admin") {
-      return res.status(403).json({ message: "Not authorized" });
-    }
-    return res.json(booking);
+    res.json(booking);
   } catch (error) {
     console.error("Error fetching booking:", error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Update booking payment to paid/confirmed
+// @desc    Update booking payment to paid
 // @route   PUT /api/bookings/:id/pay
-// @access  Private
+// @access  Public
 exports.updateBookingToPaid = async (req, res) => {
   try {
-    const booking = await Booking.findByPk(req.params.id);
+    const booking = await db.booking.findByPk(req.params.id);
     if (!booking) return res.status(404).json({ message: "Booking not found" });
     booking.paymentStatus = "paid";
     booking.status = "confirmed";
     await booking.save();
-    return res.json(booking);
+    res.json(booking);
   } catch (error) {
     console.error("Error updating payment status:", error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Admin: Update booking status arbitrarily
-// @route   PUT /api/bookings/:id/status
-// @access  Private/Admin
-exports.updateBookingStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
-    if (!status)
-      return res.status(400).json({ message: "Please provide status" });
-    const booking = await Booking.findByPk(req.params.id);
-    if (!booking) return res.status(404).json({ message: "Booking not found" });
-    booking.status = status;
-    await booking.save();
-    return res.json(booking);
-  } catch (error) {
-    console.error("Error updating status:", error);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-// @desc    Complete a booking (admin)
-// @route   PUT /api/bookings/:id/complete
-// @access  Private/Admin
-exports.completeBooking = async (req, res) => {
-  try {
-    const booking = await Booking.findByPk(req.params.id, {
-      include: [{ model: Room }],
-    });
-    if (!booking) return res.status(404).json({ message: "Booking not found" });
-    if (req.user.role !== "admin")
-      return res.status(403).json({ message: "Not authorized" });
-    if (["cancelled", "completed"].includes(booking.status)) {
-      return res
-        .status(400)
-        .json({ message: `Cannot complete a ${booking.status} booking` });
-    }
-
-    // Release any future dates if still pending checkout
-    const today = new Date().toISOString().slice(0, 10);
-    if (booking.checkOutDate >= today) {
-      await inventoryService.releaseRooms(
-        booking.Room.type,
-        today,
-        booking.checkOutDate,
-        booking.numberOfRooms
-      );
-    }
-    booking.status = "completed";
-    await booking.save();
-    return res.json({ booking, message: "Booking completed" });
-  } catch (error) {
-    console.error("Error completing booking:", error);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-// @desc    Cancel a booking (user or admin)
+// @desc    Cancel a booking
 // @route   PUT /api/bookings/:id/cancel
-// @access  Private
+// @access  Public
 exports.cancelBooking = async (req, res) => {
   try {
-    const booking = await Booking.findByPk(req.params.id, {
-      include: [{ model: Room }],
+    const booking = await db.booking.findByPk(req.params.id, {
+      include: [db.room],
     });
     if (!booking) return res.status(404).json({ message: "Booking not found" });
-    if (req.user.role !== "admin" && booking.UserId !== req.user.id) {
-      return res.status(403).json({ message: "Not authorized" });
-    }
+
     if (["cancelled", "completed"].includes(booking.status)) {
       return res
         .status(400)
         .json({ message: `Cannot cancel a ${booking.status} booking` });
     }
 
-    // Release full stay
+    // Release inventory
     await inventoryService.releaseRooms(
-      booking.Room.type,
+      booking.room.type,
       booking.checkInDate,
       booking.checkOutDate,
       booking.numberOfRooms
@@ -262,9 +190,62 @@ exports.cancelBooking = async (req, res) => {
       booking.paymentStatus = "refunded";
     }
     await booking.save();
-    return res.json({ booking, message: "Booking cancelled" });
+    res.json({ booking, message: "Booking cancelled" });
   } catch (error) {
     console.error("Error cancelling booking:", error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// @desc    Update booking status
+// @route   PUT /api/bookings/:id/status
+// @access  Public
+exports.updateBookingStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!status)
+      return res.status(400).json({ message: "Please provide status" });
+    const booking = await db.booking.findByPk(req.params.id);
+    if (!booking) return res.status(404).json({ message: "Booking not found" });
+    booking.status = status;
+    await booking.save();
+    res.json(booking);
+  } catch (error) {
+    console.error("Error updating status:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// @desc    Complete a booking
+// @route   PUT /api/bookings/:id/complete
+// @access  Public
+exports.completeBooking = async (req, res) => {
+  try {
+    const booking = await db.booking.findByPk(req.params.id, {
+      include: [db.room],
+    });
+    if (!booking) return res.status(404).json({ message: "Booking not found" });
+    if (["cancelled", "completed"].includes(booking.status)) {
+      return res
+        .status(400)
+        .json({ message: `Cannot complete a ${booking.status} booking` });
+    }
+
+    // Release future inventory
+    const today = new Date().toISOString().slice(0, 10);
+    if (booking.checkOutDate >= today) {
+      await inventoryService.releaseRooms(
+        booking.room.type,
+        today,
+        booking.checkOutDate,
+        booking.numberOfRooms
+      );
+    }
+    booking.status = "completed";
+    await booking.save();
+    res.json({ booking, message: "Booking completed" });
+  } catch (error) {
+    console.error("Error completing booking:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
