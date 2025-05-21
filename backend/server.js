@@ -12,7 +12,7 @@ const scheduledTasks = require("./utils/scheduledTasks");
 const app = express();
 app.use(
   cors({
-    origin: "https://nancy-milad376.github.io/Hotel-website/", // your frontend origin
+    origin: "https://nancy-milad376.github.io", // your frontend origin
     credentials: true,
   })
 );
@@ -69,7 +69,7 @@ const PORT = process.env.PORT || 5000;
     console.log("🔓 Foreign key checks re-enabled");
 
     // 5) Sync models (recreate tables)
-    await db.sequelize.sync({ force: true });
+    await db.sequelize.sync({ alter: true });
     console.log("✅ Database re-synced (all tables recreated)");
 
     // 6) Seed your admin user
