@@ -241,13 +241,17 @@ const deleteData = async () => {
 };
 
 // Run import or delete
-if (process.argv[2] === "-i") {
-  importData();
-} else if (process.argv[2] === "-d") {
-  deleteData();
-} else {
-  console.log(
-    "ℹ️ Use `node utils/seeder.js -i` to import data or `-d` to delete data"
-  );
-  process.exit();
+if (require.main === module) {
+  if (process.argv[2] === "-i") {
+    importData();
+  } else if (process.argv[2] === "-d") {
+    deleteData();
+  } else {
+    console.log(
+      "ℹ️ Use `node utils/seeder.js -i` to import data or `-d` to delete data"
+    );
+    process.exit();
+  }
 }
+
+module.exports = { rooms, importData, deleteData };
