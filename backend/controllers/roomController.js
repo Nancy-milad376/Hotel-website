@@ -2,26 +2,28 @@
 const db = require("../models");
 const { Op } = require("sequelize");
 
+// Helper function for booking overlap condition
+const getOverlapCondition = (checkIn, checkOut) => ({
+  [Op.and]: [
+    { checkInDate: { [Op.lt]: checkOut } },
+    { checkOutDate: { [Op.gt]: checkIn } },
+  ],
+});
+
 // @desc    Get all rooms
 // @route   GET /api/rooms
 // @access  Public
 exports.getRooms = async (req, res) => {
   try {
-    const { type, minPrice, maxPrice, availability } = req.query;
+    const { type, minPrice, maxPrice } = req.query;
     const filter = {};
 
     if (type) filter.type = type;
-    if (availability !== undefined)
-      filter.availability = availability === "true";
 
-    if (minPrice && maxPrice) {
-      filter.price = {
-        [Op.between]: [parseFloat(minPrice), parseFloat(maxPrice)],
-      };
-    } else if (minPrice) {
-      filter.price = { [Op.gte]: parseFloat(minPrice) };
-    } else if (maxPrice) {
-      filter.price = { [Op.lte]: parseFloat(maxPrice) };
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price[Op.gte] = parseFloat(minPrice);
+      if (maxPrice) filter.price[Op.lte] = parseFloat(maxPrice);
     }
 
     const rooms = await db.room.findAll({
@@ -40,18 +42,12 @@ exports.getRooms = async (req, res) => {
 // @route   GET /api/rooms/:id
 // @access  Public
 exports.getRoomById = async (req, res) => {
-  console.log("getRoomById invoked with id =", req.params.id);
   try {
     const room = await db.room.findByPk(req.params.id, {
       include: [
         {
           model: db.review,
-          include: [
-            {
-              model: db.user,
-              attributes: ["id", "name"],
-            },
-          ],
+          include: [{ model: db.user, attributes: ["id", "name"] }],
         },
       ],
     });
@@ -66,61 +62,28 @@ exports.getRoomById = async (req, res) => {
 
 // @desc    Create a new room
 // @route   POST /api/rooms
-// @access  Public (was admin)
+// @access  Public
 exports.createRoom = async (req, res) => {
   try {
-    const {
-      name,
-      description,
-      price,
-      mainImage,
-      images,
-      type,
-      adultCapacity,
-      childrenCapacity,
-      features,
-      size,
-      beds,
-      availability,
-    } = req.body;
+    const { features = [], ...roomData } = req.body;
 
     const newRoom = await db.room.create({
-      name,
-      description,
-      price,
-      mainImage,
-      images,
-      type,
-      adultCapacity,
-      childrenCapacity,
-      features,
-      size,
-      beds,
-      availability: availability !== undefined ? availability : true,
+      ...roomData,
+      features: Array.isArray(features) ? features : [features],
+      availability:
+        roomData.availability !== undefined ? roomData.availability : true,
     });
 
     res.status(201).json(newRoom);
   } catch (error) {
-    console.error("Error creating room:", error);
-    if (error.name === "SequelizeValidationError") {
-      return res
-        .status(400)
-        .json({ message: "Validation error", errors: error.errors });
-    }
-    res.status(500).json({ message: "Server error" });
+    handleSequelizeError(error, res);
   }
 };
 
 // @desc    Update room details
 // @route   PUT /api/rooms/:id
-// @access  Public (was admin)
+// @access  Public
 exports.updateRoom = async (req, res) => {
-  console.log(
-    "updateRoom invoked with id =",
-    req.params.id,
-    "body =",
-    req.body
-  );
   try {
     const room = await db.room.findByPk(req.params.id);
     if (!room) return res.status(404).json({ message: "Room not found" });
@@ -128,21 +91,14 @@ exports.updateRoom = async (req, res) => {
     const updated = await room.update(req.body);
     res.json(updated);
   } catch (error) {
-    console.error("Error updating room:", error);
-    if (error.name === "SequelizeValidationError") {
-      return res
-        .status(400)
-        .json({ message: "Validation error", errors: error.errors });
-    }
-    res.status(500).json({ message: "Server error" });
+    handleSequelizeError(error, res);
   }
 };
 
 // @desc    Delete a room
 // @route   DELETE /api/rooms/:id
-// @access  Public (was admin)
+// @access  Public
 exports.deleteRoom = async (req, res) => {
-  console.log("deleteRoom invoked with id =", req.params.id);
   try {
     const room = await db.room.findByPk(req.params.id);
     if (!room) return res.status(404).json({ message: "Room not found" });
@@ -155,50 +111,173 @@ exports.deleteRoom = async (req, res) => {
   }
 };
 
-// @desc    Check room availability
+// @desc    Get room availability
+// @route   GET /api/rooms/availability
+// @access  Public
+exports.getRoomAvailability = async (req, res) => {
+  try {
+    const { checkIn, checkOut } = req.query;
+    validateDates(checkIn, checkOut, res);
+
+    const rooms = await db.room.findAll();
+    const availabilityData = await calculateAvailability(
+      rooms,
+      checkIn,
+      checkOut
+    );
+
+    res.json(availabilityData);
+  } catch (error) {
+    console.error("Availability error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// @desc    Get rooms with availability data
+// @route   GET /api/rooms/with-availability
+// @access  Public
+exports.getRoomsWithAvailability = async (req, res) => {
+  try {
+    const { checkIn, checkOut } = req.query;
+    console.log("Received availability request with dates:", req.query);
+
+    if (!checkIn || !checkOut) {
+      return res
+        .status(400)
+        .json({ message: "Please supply checkIn & checkOut" });
+    }
+
+    // 1) load all rooms
+    const rooms = await db.room.findAll();
+    console.log(
+      "Found rooms:",
+      rooms.map((r) => r.id)
+    );
+
+    // 2) load all overlapping bookings in one go
+    const bookings = await db.booking.findAll({
+      where: {
+        [Op.and]: [
+          { checkInDate: { [Op.lt]: checkOut } },
+          { checkOutDate: { [Op.gt]: checkIn } },
+          { status: { [Op.not]: "cancelled" } },
+        ],
+      },
+    });
+
+    // 3) count how many rooms of each type are booked
+    const bookedCountByType = bookings.reduce((acc, b) => {
+      const room = rooms.find((r) => r.id === b.roomId);
+      if (room) {
+        acc[room.type] = (acc[room.type] || 0) + b.numberOfRooms;
+      }
+      if (!room) {
+        console.warn("Booking references unknown roomId:", b.roomId);
+      }
+      return acc;
+    }, {});
+
+    // 4) load inventory totals
+    const inventories = await db.roominventory.findAll();
+    const totalByType = inventories.reduce((acc, inv) => {
+      acc[inv.roomType] = inv.totalRooms;
+      return acc;
+    }, {});
+
+    // 5) build the array you actually return
+    const roomsWithAvailability = rooms.map((room) => {
+      const total = totalByType[room.type] || 0;
+      const booked = bookedCountByType[room.type] || 0;
+      const available = Math.max(total - booked, 0);
+
+      return {
+        id: room.id,
+        name: room.name,
+        type: room.type,
+        price: room.price,
+        availability: available > 0,
+        totalRooms: total,
+        bookedRooms: booked,
+        availableRooms: available,
+      };
+    });
+
+    res.json(roomsWithAvailability);
+  } catch (error) {
+    console.error("Full error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// @desc    Check specific room availability
 // @route   POST /api/rooms/check-availability
 // @access  Public
 exports.checkRoomAvailability = async (req, res) => {
-  console.log("checkRoomAvailability invoked", req.body);
   try {
     const { roomId, checkInDate, checkOutDate } = req.body;
     if (!roomId || !checkInDate || !checkOutDate) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // Ensure the room exists
     const room = await db.room.findByPk(roomId);
     if (!room) return res.status(404).json({ message: "Room not found" });
 
-    if (!room.availability) {
-      return res.json({ available: false, message: "Room not available" });
-    }
-
-    // Check for overlapping bookings
-    const existingBooking = await db.booking.findOne({
-      where: {
-        roomId,
-        status: { [Op.not]: "cancelled" },
-        [Op.or]: [
-          { checkInDate: { [Op.between]: [checkInDate, checkOutDate] } },
-          { checkOutDate: { [Op.between]: [checkInDate, checkOutDate] } },
-          {
-            [Op.and]: [
-              { checkInDate: { [Op.lte]: checkInDate } },
-              { checkOutDate: { [Op.gte]: checkOutDate } },
-            ],
-          },
-        ],
-      },
+    const availabilityData = await getRoomAvailabilityData(
+      room,
+      checkInDate,
+      checkOutDate
+    );
+    res.json({
+      ...availabilityData,
+      message: availabilityData.available ? "Available" : "Fully booked",
     });
-
-    if (existingBooking) {
-      return res.json({ available: false, message: "Already booked" });
-    }
-
-    res.json({ available: true, message: "Available", room });
   } catch (error) {
     console.error("Error checking availability:", error);
     res.status(500).json({ message: "Server error" });
   }
+};
+
+// Helper functions
+const handleSequelizeError = (error, res) => {
+  console.error(error);
+  if (error.name === "SequelizeValidationError") {
+    return res.status(400).json({
+      message: "Validation error",
+      errors: error.errors.map((err) => err.message),
+    });
+  }
+  res.status(500).json({ message: "Server error" });
+};
+
+const validateDates = (checkIn, checkOut, res) => {
+  if (!checkIn || !checkOut) {
+    return res.status(400).json({ message: "Missing date parameters" });
+  }
+};
+
+const calculateAvailability = async (rooms, checkIn, checkOut) => {
+  const availability = await Promise.all(
+    rooms.map((room) => getRoomAvailabilityData(room, checkIn, checkOut))
+  );
+
+  return availability.reduce((acc, curr) => {
+    acc[curr.roomType] = curr;
+    return acc;
+  }, {});
+};
+
+const getRoomAvailabilityData = async (room, checkIn, checkOut) => {
+  const bookingsCount = await db.booking.count({
+    where: {
+      roomId: room.id,
+      ...getOverlapCondition(checkIn, checkOut),
+    },
+  });
+
+  return {
+    roomType: room.type,
+    availableRooms: Math.max(room.totalRooms - bookingsCount, 0),
+    totalRooms: room.totalRooms,
+    available: room.totalRooms - bookingsCount > 0,
+  };
 };

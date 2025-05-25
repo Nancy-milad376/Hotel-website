@@ -1,124 +1,114 @@
-import React, { useState } from 'react';
-import axios from 'axios';
-import DatePicker from 'react-datepicker';
+import React, { useState } from "react";
+import axios from "axios";
+import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import './RoomAvailability.css';
+import "./RoomAvailability.css";
 
-const RoomAvailability = () => {
+const RoomAvailability = ({ onDatesChange }) => {
   const [checkInDate, setCheckInDate] = useState(new Date());
-  const [checkOutDate, setCheckOutDate] = useState(new Date(new Date().setDate(new Date().getDate() + 1)));
-  const [availabilityData, setAvailabilityData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [checkOutDate, setCheckOutDate] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow;
+  });
   const [error, setError] = useState(null);
-
-  const roomTypeLabels = {
-    honeymoon: 'Honeymoon Suite',
-    family: 'Family Suite',
-    panoramic: 'Ocean View Room',
-    exclusive: 'Luxury Suite',
-    deluxe: 'Deluxe Single Room',
-    presidential: 'Presidential Suite'
-  };
+  const [loading, setLoading] = useState(false);
 
   const handleCheckAvailability = async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Format dates for the API
-      const formattedCheckIn = checkInDate.toISOString().split('T')[0];
-      const formattedCheckOut = checkOutDate.toISOString().split('T')[0];
-      
-      // Call the API to get availability data
-      const response = await axios.get(`/api/inventory/availability?checkInDate=${formattedCheckIn}&checkOutDate=${formattedCheckOut}`);
-      
-      setAvailabilityData(response.data);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error checking availability:', error);
-      setError('Failed to check availability. Please try again later.');
+
+      // Basic validation
+      if (!checkInDate || !checkOutDate) {
+        throw new Error("Please select both check-in and check-out dates");
+      }
+      if (checkInDate >= checkOutDate) {
+        throw new Error("Check-out date must be after check-in date");
+      }
+
+      // Format dates as YYYY-MM-DD
+      const formattedCheckIn = checkInDate.toISOString().slice(0, 10);
+      const formattedCheckOut = checkOutDate.toISOString().slice(0, 10);
+
+      // Tell the parent (Rooms) about the new dates so it can re-fetch rooms
+      onDatesChange({
+        checkIn: formattedCheckIn,
+        checkOut: formattedCheckOut,
+      });
+    } catch (err) {
+      setError(err.message);
+    } finally {
       setLoading(false);
     }
   };
 
   const handleDateChange = (date, type) => {
-    if (type === 'checkIn') {
-      setCheckInDate(date);
-      // Ensure checkout is after checkin
-      if (date >= checkOutDate) {
-        const newCheckOut = new Date(date);
-        newCheckOut.setDate(date.getDate() + 1);
-        setCheckOutDate(newCheckOut);
+    const zeroTime = (d) => {
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+    const d = zeroTime(new Date(date));
+
+    if (type === "checkIn") {
+      setCheckInDate(d);
+      // auto-bump checkout if necessary
+      if (d >= checkOutDate) {
+        const next = new Date(d);
+        next.setDate(next.getDate() + 1);
+        setCheckOutDate(zeroTime(next));
       }
     } else {
-      setCheckOutDate(date);
+      setCheckOutDate(d);
     }
   };
 
   return (
     <div className="room-availability-container">
       <h2>Check Room Availability</h2>
-      
-      <div className="availability-form">
-        <div className="date-picker-container">
-          <div className="date-picker">
+      <div className="availability-controls">
+        <div className="date-picker-group">
+          <div className="date-picker-wrapper">
             <label>Check-in Date</label>
             <DatePicker
               selected={checkInDate}
-              onChange={(date) => handleDateChange(date, 'checkIn')}
+              onChange={(d) => handleDateChange(d, "checkIn")}
               minDate={new Date()}
-              dateFormat="yyyy-MM-dd"
+              dateFormat="MMMM d, yyyy"
+              className="date-input"
+              popperPlacement="bottom-start"
             />
           </div>
-          
-          <div className="date-picker">
+          <div className="date-picker-wrapper">
             <label>Check-out Date</label>
             <DatePicker
               selected={checkOutDate}
-              onChange={(date) => handleDateChange(date, 'checkOut')}
-              minDate={new Date(checkInDate.getTime() + 86400000)} // 1 day after check-in
-              dateFormat="yyyy-MM-dd"
+              onChange={(d) => handleDateChange(d, "checkOut")}
+              minDate={new Date(checkInDate.getTime() + 86400000)}
+              dateFormat="MMMM d, yyyy"
+              className="date-input"
+              popperPlacement="bottom-start"
             />
           </div>
         </div>
-        
-        <button 
-          className="availability-btn" 
+        <button
+          className={`availability-btn ${loading ? "loading" : ""}`}
           onClick={handleCheckAvailability}
           disabled={loading}
         >
-          {loading ? 'Checking...' : 'Check Availability'}
+          {loading ? (
+            <>
+              <span className="spinner"></span>
+              Checking...
+            </>
+          ) : (
+            "Check Availability"
+          )}
         </button>
       </div>
-      
-      {error && <div className="error-message">{error}</div>}
-      
-      {availabilityData && !error && (
-        <div className="availability-results">
-          <h3>Room Availability for Selected Dates</h3>
-          <div className="room-types-grid">
-            {Object.keys(availabilityData).map((roomType) => {
-              const room = availabilityData[roomType];
-              return (
-                <div 
-                  key={roomType} 
-                  className={`room-availability-card ${room.available ? 'available' : 'unavailable'}`}
-                >
-                  <h4>{roomTypeLabels[roomType] || roomType}</h4>
-                  {room.available ? (
-                    <div className="availability-info">
-                      <p className="available-rooms">
-                        <span className="availability-count">{room.availableRooms}</span> rooms available
-                      </p>
-                      <p className="total-rooms">out of {room.totalRooms} total</p>
-                    </div>
-                  ) : (
-                    <p className="not-available">No rooms available</p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+      {error && (
+        <div className="error-message">
+          <i className="fas fa-exclamation-circle" /> {error}
         </div>
       )}
     </div>

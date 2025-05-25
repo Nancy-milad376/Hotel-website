@@ -1,7 +1,7 @@
-//roomModel.js
+// backend/models/roomModel.js
 module.exports = (sequelize, DataTypes) => {
   const Room = sequelize.define(
-    "room",
+    "Room",
     {
       name: {
         type: DataTypes.STRING,
@@ -93,8 +93,13 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: false,
       },
+      // --- REMOVE any totalRooms or availableRooms fields here! ---
     },
-    { freezeTableName: true, tableName: "rooms" }
+    {
+      tableName: "rooms",
+      freezeTableName: true,
+      timestamps: true,
+    }
   );
 
   return Room;

@@ -1,119 +1,99 @@
-/**
- * Database initialization utility
- * Helps ensure proper database setup and table creation
- */
-const db = require('../models');
-const { Op } = require('sequelize');
-const { createTablesDirectly } = require('./createTables');
-const roomTypes = [
-  { type: 'honeymoon', name: 'Honeymoon Suite', count: 20 },
-  { type: 'family', name: 'Family Suite', count: 10 },
-  { type: 'panoramic', name: 'Ocean View Room', count: 25 },
-  { type: 'exclusive', name: 'Luxury Suite', count: 30 },
-  { type: 'deluxe', name: 'Deluxe Single Room', count: 10 },
-  { type: 'presidential', name: 'Presidential Suite', count: 15 }
-];
+// backend/utils/databaseInit.js
 
-// Database state tracking
+const db = require("../models");
+const { createTablesDirectly } = require("./createTables");
+const { rooms: roomsData } = require("./seeder"); // make sure seeder.js exports { rooms, importData, deleteData }
+
 let databaseReady = false;
 let tablesInitialized = false;
 let inventoryInitialized = false;
 
 /**
- * Initialize the database and create all necessary tables
+ * Seed rooms table if empty
  */
-const initializeDatabase = async (sequelize) => {
-  try {
-    console.log('Starting database initialization...');
+async function seedRooms() {
+  const count = await db.room.count();
+  if (count > 0) {
+    console.log("🛏️ Rooms already seeded — skipping.");
+    return;
+  }
+  await db.room.bulkCreate(roomsData);
+  console.log("🛏️ Rooms table seeded from seeder.js");
+}
 
-    // Create tables directly using SQL - this is more reliable than Sequelize sync
-    await createTablesDirectly(sequelize);
-    
-    // Mark tables as initialized
+/**
+ * Initialize room inventory (clear old rows, then insert fresh)
+ */
+async function initializeInventory() {
+  console.log("🧮 Truncating old roominventories...");
+  await db.roominventory.destroy({ where: {} });
+
+  console.log("🧮 Seeding room inventory...");
+  // You can import your roomTypes list or hard-code here:
+  const roomTypes = [
+    { type: "honeymoon", name: "Honeymoon Suite", count: 20 },
+    { type: "family", name: "Family Suite", count: 10 },
+    { type: "panoramic", name: "Ocean View Room", count: 25 },
+    { type: "exclusive", name: "Luxury Suite", count: 30 },
+    { type: "deluxe", name: "Deluxe Single Room", count: 10 },
+    { type: "presidential", name: "Presidential Suite", count: 15 },
+  ];
+
+  for (const { type, name, count } of roomTypes) {
+    await db.roominventory.create({
+      roomType: type,
+      totalRooms: count,
+      availableRooms: count,
+    });
+    console.log(`  • ${name} (${type}): ${count} rooms`);
+  }
+
+  inventoryInitialized = true;
+  console.log("✅ Room inventory initialized");
+}
+
+/**
+ * Initialize the database: tables → seed rooms → seed inventory
+ */
+async function initializeDatabase() {
+  try {
+    console.log("🚀 Starting database initialization...");
+
+    // 1) Create tables via raw SQL
+    await createTablesDirectly(db.sequelize);
     tablesInitialized = true;
-    
-    // Wait a moment to ensure tables are fully created
-    console.log('Waiting for tables to be ready...');
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    // Try to test table access
-    try {
-      const test = await sequelize.query('SELECT 1 FROM RoomInventories LIMIT 1');
-      console.log('Table access verified');
-    } catch (tableError) {
-      console.log('Tables may not be fully ready yet, but continuing anyway');
-    }
-    
-    // Initialize room inventory
+    console.log("✅ Tables created");
+
+    // 2) Seed rooms only if empty
+    await seedRooms();
+
+    // 3) Clear & seed inventory
     await initializeInventory();
-    inventoryInitialized = true;
-    
-    console.log('Database initialization complete');
+
+    console.log("✅ Database initialization complete");
     databaseReady = true;
-    
     return true;
-  } catch (error) {
-    console.error('Failed to initialize database:', error);
-    // Set ready flag to true even with errors to allow system to function
-    databaseReady = true;
+  } catch (err) {
+    console.error("❌ Database initialization failed:", err);
+    databaseReady = true; // mark ready so server still starts
     return false;
   }
-};
+}
 
-/**
- * Initialize room inventory
- */
-const initializeInventory = async () => {
-  try {
-    console.log('Initializing room inventory...');
-    
-    // Create inventory records for each room type using direct SQL
-    // This is more reliable than using the ORM when tables are newly created
-    for (const room of roomTypes) {
-      try {
-        await db.sequelize.query(
-          `INSERT INTO roominventories (roomType, totalRooms, availableRooms, createdAt, updatedAt) 
-           VALUES (?, ?, ?, NOW(), NOW())`,
-          { 
-            replacements: [room.type, room.count, room.count],
-            type: db.sequelize.QueryTypes.INSERT 
-          }
-        );
-        console.log(`Initialized inventory for ${room.name}: ${room.count} rooms`);
-      } catch (insertError) {
-        console.error(`Failed to initialize ${room.name} inventory:`, insertError);
-      }
-    }
-    
-    console.log('Room inventory initialization completed');
-    return true;
-  } catch (error) {
-    console.error('Error initializing room inventory:', error);
-    return false;
-  }
-};
-
-/**
- * Check if the database is ready
- */
-const isDatabaseReady = () => {
+function isDatabaseReady() {
   return databaseReady;
-};
+}
 
-/**
- * Get current initialization status
- */
-const getInitStatus = () => {
+function getInitStatus() {
   return {
     tablesInitialized,
     inventoryInitialized,
-    databaseReady
+    databaseReady,
   };
-};
+}
 
 module.exports = {
   initializeDatabase,
   isDatabaseReady,
   getInitStatus,
-  roomTypes
 };
